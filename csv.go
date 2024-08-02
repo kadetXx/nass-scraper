@@ -4,18 +4,29 @@ import (
 	"encoding/csv"
 	"log"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 )
 
 func generateCsvFiles(data []Politician) {
-	file, err := os.Create("nass-politicians.csv")
+	cwd, _ := os.Getwd()
 
-	if err != nil {
-		log.Fatal(err.Error())
+	senatorsCsv, err1 := os.Create(filepath.FromSlash(filepath.Join(cwd, "generated", "senators.csv")))
+	repsCsv, err2 := os.Create(filepath.FromSlash(filepath.Join(cwd, "generated", "representatives.csv")))
+
+	errors := []error{err1, err2}
+
+	if !slices.Equal(errors, []error{nil, nil}) {
+		log.Fatal(err1.Error())
+		log.Fatal(err2.Error())
 	}
 
-	defer file.Close()
-	writer := csv.NewWriter(file)
+	defer repsCsv.Close()
+	defer senatorsCsv.Close()
+
+	repsWriter := csv.NewWriter(repsCsv)
+	senatorsWriter := csv.NewWriter(senatorsCsv)
 
 	headers := []string{
 		"Name",
@@ -28,22 +39,28 @@ func generateCsvFiles(data []Politician) {
 		"Address",
 	}
 
-	writer.Write(headers)
+	repsWriter.Write(headers)
+	senatorsWriter.Write(headers)
 
 	for _, p := range data {
 		entry := []string{
-			p.name,
-			p.email,
-			strings.Join(p.phone, ","),
-			p.chamber,
-			p.constituency,
-			p.party,
-			p.avatar,
-			p.address,
+			strings.TrimSpace(p.name),
+			strings.TrimSpace(p.email),
+			strings.TrimSpace(strings.Join(p.phone, ",")),
+			strings.TrimSpace(p.chamber),
+			strings.TrimSpace(p.constituency),
+			strings.TrimSpace(p.party),
+			strings.TrimSpace(p.avatar),
+			strings.TrimSpace(p.address),
 		}
 
-		writer.Write(entry)
+		if p.chamber == "Senate" {
+			senatorsWriter.Write(entry)
+		} else {
+			repsWriter.Write(entry)
+		}
 	}
 
-	defer writer.Flush()
+	defer repsWriter.Flush()
+	defer senatorsWriter.Flush()
 }
