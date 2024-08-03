@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -14,16 +13,11 @@ import (
 
 var politicians []Politician
 
-func scrape(id string, cloud *media.Cloud) {
+func scrape(id string) {
 	url := "https://nass.gov.ng/mps/single/" + id
 
 	collector := colly.NewCollector()
-
-	collector.OnRequest(func(r *colly.Request) {
-		fmt.Println("scraping", r.URL.String())
-	})
-
-	var politician Politician
+	politician := Politician{}
 
 	collector.OnHTML(".heading-block", func(el *colly.HTMLElement) {
 		politician.name = el.ChildText("h3")
@@ -32,9 +26,10 @@ func scrape(id string, cloud *media.Cloud) {
 
 	collector.OnHTML(".team-image", func(el *colly.HTMLElement) {
 		avatarPath := el.ChildAttr("img", "src")
-		avatarUrl := "https://nass.gov.ng" + avatarPath
 
-		politician.avatar = cloud.Upload(avatarUrl)
+		if strings.Contains(avatarPath, "/") {
+			politician.avatar = "https://nass.gov.ng" + avatarPath
+		}
 	})
 
 	collector.OnHTML(".row .col-md-3", func(el *colly.HTMLElement) {
@@ -95,10 +90,10 @@ func main() {
 
 		go func() {
 			defer wg.Done()
-			scrape(legislatorId, &cloud)
+			scrape(legislatorId)
 		}()
 	}
 
 	wg.Wait()
-	generateCsvFiles(politicians)
+	generateCsvFiles(politicians, &cloud)
 }

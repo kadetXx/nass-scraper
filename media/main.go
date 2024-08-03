@@ -20,6 +20,7 @@ func (c *Cloud) Upload(url string) string {
 
 	if err != nil {
 		fmt.Println(err)
+		return ""
 	}
 
 	return resp.SecureURL
