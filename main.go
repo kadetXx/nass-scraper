@@ -2,16 +2,19 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
 	"github.com/gocolly/colly"
+	"github.com/joho/godotenv"
 	"github.com/kadetXx/nass-scraper/api"
+	"github.com/kadetXx/nass-scraper/media"
 )
 
 var politicians []Politician
 
-func scrape(id string) {
+func scrape(id string, cloud *media.Cloud) {
 	url := "https://nass.gov.ng/mps/single/" + id
 
 	collector := colly.NewCollector()
@@ -29,7 +32,9 @@ func scrape(id string) {
 
 	collector.OnHTML(".team-image", func(el *colly.HTMLElement) {
 		avatarPath := el.ChildAttr("img", "src")
-		politician.avatar = "https://nass.gov.ng" + avatarPath
+		avatarUrl := "https://nass.gov.ng" + avatarPath
+
+		politician.avatar = cloud.Upload(avatarUrl)
 	})
 
 	collector.OnHTML(".row .col-md-3", func(el *colly.HTMLElement) {
@@ -37,7 +42,7 @@ func scrape(id string) {
 			label := h.ChildText("strong")
 
 			if strings.Contains(label, ":") && !strings.Contains(h.Text, "{{") {
-				value := strings.Split(h.Text, ":")[1]
+				value := strings.TrimSpace(strings.Split(h.Text, ":")[1])
 
 				switch label {
 				case "Email:":
@@ -69,7 +74,19 @@ func scrape(id string) {
 }
 
 func main() {
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
 	legislatorIds := api.GetLegislatorIds()
+	cld, ctx := media.Config()
+
+	cloud := media.Cloud{
+		Cld: cld,
+		Ctx: ctx,
+	}
 
 	var wg sync.WaitGroup
 
@@ -78,7 +95,7 @@ func main() {
 
 		go func() {
 			defer wg.Done()
-			scrape(legislatorId)
+			scrape(legislatorId, &cloud)
 		}()
 	}
 

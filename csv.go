@@ -44,14 +44,14 @@ func generateCsvFiles(data []Politician) {
 
 	for _, p := range data {
 		entry := []string{
-			strings.TrimSpace(p.name),
-			strings.TrimSpace(p.email),
-			strings.TrimSpace(strings.Join(p.phone, ",")),
-			strings.TrimSpace(p.chamber),
-			strings.TrimSpace(p.constituency),
-			strings.TrimSpace(p.party),
-			strings.TrimSpace(p.avatar),
-			strings.TrimSpace(p.address),
+			p.name,
+			p.email,
+			strings.Join(p.phone, ","),
+			p.chamber,
+			p.constituency,
+			p.party,
+			p.avatar,
+			p.address,
 		}
 
 		if p.chamber == "Senate" {
