@@ -13,9 +13,10 @@ type Cloud struct {
 	Ctx context.Context
 }
 
-func (c *Cloud) Upload(url string) string {
+func (c *Cloud) Upload(url string, id string) string {
 	resp, err := c.Cld.Upload.Upload(c.Ctx, url, uploader.UploadParams{
-		Folder: "nass-scraper",
+		Folder:   "nass-scraper",
+		PublicID: id,
 	})
 
 	if err != nil {

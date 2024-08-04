@@ -33,7 +33,10 @@ func scrape(ids []string, collector *colly.Collector, cloud *media.Cloud) {
 
 		if strings.Contains(avatarPath, "/") {
 			avatar := "https://nass.gov.ng" + avatarPath
-			politician.avatar = cloud.Upload(avatar)
+			pathSegments := strings.Split(avatarPath, "/")
+
+			id := pathSegments[len(pathSegments)-1]
+			politician.avatar = cloud.Upload(avatar, id)
 		}
 
 		el.ForEach(".row .col-md-3 a", func(i int, h *colly.HTMLElement) {
