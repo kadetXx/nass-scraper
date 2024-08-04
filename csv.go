@@ -2,19 +2,14 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
-
-	"github.com/kadetXx/nass-scraper/media"
 )
 
-func generateCsvFiles(data []Politician, cloud *media.Cloud) {
-	fmt.Println(">>", len(politicians))
+func generateCsvFiles(data []Politician) {
 	cwd, _ := os.Getwd()
 
 	senatorsCsv, err1 := os.Create(filepath.FromSlash(filepath.Join(cwd, "generated", "senators.csv")))
@@ -47,36 +42,27 @@ func generateCsvFiles(data []Politician, cloud *media.Cloud) {
 	repsWriter.Write(headers)
 	senatorsWriter.Write(headers)
 
-	var wg sync.WaitGroup
-
 	for _, p := range data {
-		wg.Add(1)
+		entry := []string{
+			p.name,
+			p.email,
+			strings.Join(p.phone, ","),
+			p.chamber,
+			p.constituency,
+			p.party,
+			p.avatar,
+			p.address,
+		}
 
-		go func() {
-			defer wg.Done()
-			avatar := cloud.Upload(p.avatar)
+		if p.chamber == "Senate" {
+			senatorsWriter.Write(entry)
+		} else {
+			repsWriter.Write(entry)
+		}
 
-			entry := []string{
-				p.name,
-				p.email,
-				strings.Join(p.phone, ","),
-				p.chamber,
-				p.constituency,
-				p.party,
-				avatar,
-				p.address,
-			}
-
-			if p.chamber == "Senate" {
-				senatorsWriter.Write(entry)
-			} else {
-				repsWriter.Write(entry)
-			}
-		}()
 	}
 
 	defer repsWriter.Flush()
 	defer senatorsWriter.Flush()
 
-	wg.Wait()
 }

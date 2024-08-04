@@ -9,31 +9,34 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kadetXx/nass-scraper/api"
 	"github.com/kadetXx/nass-scraper/media"
+	"github.com/kadetXx/nass-scraper/progress"
 )
 
 var politicians []Politician
 
-func scrape(id string) {
-	url := "https://nass.gov.ng/mps/single/" + id
+func scrape(ids []string, collector *colly.Collector, cloud *media.Cloud) {
+	var wg sync.WaitGroup
 
-	collector := colly.NewCollector()
-	politician := Politician{}
+	bar := progress.NewProgressBar(len(ids), 50)
 
-	collector.OnHTML(".heading-block", func(el *colly.HTMLElement) {
-		politician.name = el.ChildText("h3")
-		politician.constituency = el.ChildText("span")
+	collector.OnRequest(func(r *colly.Request) {
+		wg.Add(1)
 	})
 
-	collector.OnHTML(".team-image", func(el *colly.HTMLElement) {
-		avatarPath := el.ChildAttr("img", "src")
+	collector.OnHTML(".content-wrap", func(el *colly.HTMLElement) {
+		politician := Politician{}
+
+		politician.name = el.ChildText(".heading-block h3")
+		politician.constituency = el.ChildText(".heading-block span")
+
+		avatarPath := el.ChildAttr(".team-image img", "src")
 
 		if strings.Contains(avatarPath, "/") {
-			politician.avatar = "https://nass.gov.ng" + avatarPath
+			avatar := "https://nass.gov.ng" + avatarPath
+			politician.avatar = cloud.Upload(avatar)
 		}
-	})
 
-	collector.OnHTML(".row .col-md-3", func(el *colly.HTMLElement) {
-		el.ForEach("a", func(i int, h *colly.HTMLElement) {
+		el.ForEach(".row .col-md-3 a", func(i int, h *colly.HTMLElement) {
 			label := h.ChildText("strong")
 
 			if strings.Contains(label, ":") && !strings.Contains(h.Text, "{{") {
@@ -58,13 +61,17 @@ func scrape(id string) {
 			}
 		})
 
-	})
-
-	collector.OnScraped(func(r *colly.Response) {
 		politicians = append(politicians, politician)
+		bar.Increment()
+		wg.Done()
 	})
 
-	collector.Visit(url)
+	for _, id := range ids {
+		url := "https://nass.gov.ng/mps/single/" + id
+		collector.Visit(url)
+	}
+
+	wg.Wait()
 	collector.Wait()
 }
 
@@ -75,25 +82,21 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	legislatorIds := api.GetLegislatorIds()
 	cld, ctx := media.Config()
+
+	legislatorIds := api.GetLegislatorIds()
+	collector := colly.NewCollector(colly.Async(true))
+
+	collector.Limit(&colly.LimitRule{
+		DomainGlob:  "*",
+		Parallelism: 10,
+	})
 
 	cloud := media.Cloud{
 		Cld: cld,
 		Ctx: ctx,
 	}
 
-	var wg sync.WaitGroup
-
-	for _, legislatorId := range legislatorIds {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-			scrape(legislatorId)
-		}()
-	}
-
-	wg.Wait()
-	generateCsvFiles(politicians, &cloud)
+	scrape(legislatorIds, collector, &cloud)
+	generateCsvFiles(politicians)
 }
